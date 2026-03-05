@@ -42,7 +42,6 @@ void free_grid(int n, int rows, int** local_grid){
 
 void sendLowerRecvUpper(int* upper_row, int n, int rows, int** local_grid, MPI_Comm comm)
 {
-    // printf("p%d: sending lower to %d\n", rank, (rank + p - 1) % p);
     MPI_Request req;
 
     MPI_Isend(
@@ -70,7 +69,6 @@ void sendLowerRecvUpper(int* upper_row, int n, int rows, int** local_grid, MPI_C
 
 void sendUpperRecvLower(int* lower_row, int n, int rows, int** local_grid, MPI_Comm comm)
 {
-    // printf("p%d: sending upper to %d\n", rank, (rank + 1) % p);
     MPI_Request req;
     MPI_Isend(
         local_grid[0],
@@ -113,6 +111,11 @@ void simulate(int G, int n, int rows, int** local_grid, MPI_Comm comm){
                 output_grid[i][j] = determine_state(i,j,n,rows,local_grid, comm);
             }
         }
+        for(int j = 0; j < n; j++){
+            output_grid[0][j] = determine_state_manual(j,n,local_grid[1], upper_row, local_grid[0]);
+            output_grid[rows-1][j] = determine_state_manual(j,n,lower_row, local_grid[rows-2], local_grid[rows-1]);
+        }
+
         int** temp = local_grid;
         local_grid = output_grid;
         output_grid = temp;
@@ -120,11 +123,32 @@ void simulate(int G, int n, int rows, int** local_grid, MPI_Comm comm){
         if(cycle % display_frequency == 0){
             display_gol(n, rows, local_grid, comm);
         }
+
+        MPI_Barrier(comm);
     }
 
     free(upper_row);
     free(lower_row);
     free_grid(n, rows, output_grid);
+}
+
+int determine_state_manual(int x, int n, int* lower, int* middle, int* upper){
+    int west = (x - 1 + n) % n;
+    int east = (x + 1) % n;
+
+    int north = upper[x];
+    int south = lower[x];
+    int w     = middle[west];
+    int e     = middle[east];
+
+    int nw = upper[west];
+    int ne = upper[east];
+    int sw = lower[west];
+    int se = lower[east];
+
+    int neighbors = north + south + e + w + ne + nw + se + sw;
+
+    return neighbors > 2 && neighbors < 6;
 }
 
 int determine_state(int y, int x, int n, int rows, int** local_grid, MPI_Comm comm) {
@@ -165,6 +189,8 @@ void display_gol(int n, int rows, int** local_grid, MPI_Comm comm){
                 }
                 fprintf(outfile, "\n");
             }
+
+            fflush(stdout);
         }
     }
     fclose(outfile);
