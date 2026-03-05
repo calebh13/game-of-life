@@ -163,6 +163,8 @@ void simulate(int G, int n, int rows, int** local_grid, MPI_Comm comm)
 {
     LOG("Entered simulate G=%d n=%d rows=%d", G, n, rows);
 
+    display_gol(n, rows, local_grid, comm);
+
     LOG("Allocating output grid");
     int** output_grid = malloc(rows * sizeof(int*));
 
@@ -313,18 +315,19 @@ void display_gol(int n, int rows, int** local_grid, MPI_Comm comm)
 
             FILE* fp = fopen(filename, "r");
 
-            printf("Reading process %d\n", r);
+            // printf("Reading process %d\n", r);
 
             while (getline(&line, &linesize, fp) != -1) {
                 printf("%s", line);
             }
 
-            printf("Done reading process %d\n", r);
+            // printf("Done reading process %d\n", r);
 
             fclose(fp);
         }
 
         free(line);
+        printf("\n");
     }
 
     LOG("Exiting display_gol");
