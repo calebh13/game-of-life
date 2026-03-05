@@ -1,6 +1,7 @@
 #include "funcs.h"
 
 #define BIGPRIME 2147483647UL
+#define OUTFILE_FORMAT "p%dout.txt"
 
 int rank, p;
 
@@ -41,7 +42,7 @@ void free_grid(int n, int rows, int** local_grid){
 
 void sendLowerRecvUpper(int* upper_row, int n, int rows, int** local_grid, MPI_Comm comm)
 {
-    printf("p%d: sending lower to %d\n", rank, (rank + p - 1) % p);
+    // printf("p%d: sending lower to %d\n", rank, (rank + p - 1) % p);
     MPI_Request req;
 
     MPI_Isend(
@@ -69,7 +70,7 @@ void sendLowerRecvUpper(int* upper_row, int n, int rows, int** local_grid, MPI_C
 
 void sendUpperRecvLower(int* lower_row, int n, int rows, int** local_grid, MPI_Comm comm)
 {
-    printf("p%d: sending upper to %d\n", rank, (rank + 1) % p);
+    // printf("p%d: sending upper to %d\n", rank, (rank + 1) % p);
     MPI_Request req;
     MPI_Isend(
         local_grid[0],
@@ -150,21 +151,40 @@ void display_gol(int n, int rows, int** local_grid, MPI_Comm comm){
     int rank, size;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &size);
-
+    
+    char filename[100];
+    sprintf(filename, OUTFILE_FORMAT, rank);
+    FILE* outfile = fopen(filename, "w");
     for (int r = 0; r < size; r++) {
         MPI_Barrier(comm);
 
         if(rank == r){
             for(int i = 0; i < rows; i++){
                 for(int j = 0; j < n; j++){
-                    printf("%d ", local_grid[i][j]);
+                    fprintf(outfile, "%d ", local_grid[i][j]);
                 }
-
-                printf("\n");
+                fprintf(outfile, "\n");
             }
         }
     }
+    fclose(outfile);
 
     MPI_Barrier(comm);
-    if(rank == 0) printf("\n\n");
+
+    // p0 prints all the stuff in order
+    if (rank == 0) {
+        char* line = malloc((n+1) * 2 * sizeof(char));
+        for(int r = 0; r < p; r++) {
+            sprintf(filename, OUTFILE_FORMAT, r);
+            FILE* fp = fopen(filename, "r");
+            size_t linesize = (n+1) * 2 * sizeof(char);
+            printf("Reading process %d\n", r);
+            while (getline(&line, &linesize, fp) != -1) {
+                printf("%s", line); // getline does not remove newline chars
+            }
+            printf("Done reading process %d\n", r);
+            fclose(fp);
+        }
+        free(line);
+    }
 }
