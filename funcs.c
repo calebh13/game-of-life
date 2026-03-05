@@ -2,8 +2,9 @@
 
 #define BIGPRIME 2147483647UL
 
+int rank, p;
+
 void GenerateInitialGoL(int n, int rows, int** local_grid, MPI_Comm comm) {
-    int rank, p;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &p);
 
@@ -38,24 +39,71 @@ void free_grid(int n, int rows, int** local_grid){
     free(local_grid);
 }
 
+void getUpperRow(int* upper_row, int n, int rows, int** local_grid, MPI_Comm comm)
+{
+    printf("p%d: sendrecv with %d\n for upper", rank, (rank + p - 1) % p);
+    MPI_Isendrecv(
+            local_grid[0],
+            n,
+            MPI_INT,
+            (rank + p - 1) % p,
+            0,
+            upper_row,
+            n,
+            MPI_INT,
+            (rank + p - 1) % p,
+            MPI_ANY_TAG,
+            comm,
+            MPI_STATUS_IGNORE
+    );
+}
+
+void getLowerRow(int* lower_row, int n, int rows, int** local_grid, MPI_Comm comm)
+{
+    printf("p%d: sendrecv with %d for lower\n", rank, (rank + 1) % p);
+    MPI_Sendrecv(
+        local_grid[rows - 1],
+        n,
+        MPI_INT,
+        (rank + 1) % p,
+        0,
+        lower_row,
+        n,
+        MPI_INT,
+        (rank + 1) % p,
+        MPI_ANY_TAG,
+        comm,
+        MPI_STATUS_IGNORE
+    );
+}
+
 void simulate(int G, int n, int rows, int** local_grid, MPI_Comm comm){
     int** output_grid = malloc(rows * sizeof(int));
     for(int i = 0; i < rows; i++) {
         output_grid[i] = malloc(n * sizeof(int));
     }
+    int *upper_row = malloc(n * sizeof(int));
+    int *lower_row = malloc(n * sizeof(int));
 
     for(int cycle = 0; cycle < G; cycle++){
-        // mpi sendrecv the respective rows
+        getUpperRow(upper_row, n, rows, local_grid, comm);
+        getLowerRow(lower_row, n, rows, local_grid, comm);
+
         for(int i = 1; i < rows - 1; i++){
             for(int j = 0; j < n; j++){
                 output_grid[i][j] = determine_state(i,j,n,rows,local_grid, comm);
             }
         }
+
+        // we also need to calculate rows 0 and `rows - 1`. do separate logic somehow
+        
     }
 
+    free(upper_row);
+    free(lower_row);
     free_grid(n, rows, local_grid);
 }
 
 int determine_state(int x,int y,int n,int rows,int** local_grid, MPI_Comm comm){
-    
+    return 0;
 }
