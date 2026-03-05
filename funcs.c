@@ -39,34 +39,49 @@ void free_grid(int n, int rows, int** local_grid){
     free(local_grid);
 }
 
-void getUpperRow(int* upper_row, int n, int rows, int** local_grid, MPI_Comm comm)
+void sendLowerRecvUpper(int* upper_row, int n, int rows, int** local_grid, MPI_Comm comm)
 {
-    printf("p%d: sendrecv with %d\n for upper", rank, (rank + p - 1) % p);
-    MPI_Isendrecv(
-            local_grid[0],
-            n,
-            MPI_INT,
-            (rank + p - 1) % p,
-            0,
-            upper_row,
-            n,
-            MPI_INT,
-            (rank + p - 1) % p,
-            MPI_ANY_TAG,
-            comm,
-            MPI_STATUS_IGNORE
-    );
-}
+    printf("p%d: sending lower to %d\n", rank, (rank + p - 1) % p);
+    MPI_Request req;
 
-void getLowerRow(int* lower_row, int n, int rows, int** local_grid, MPI_Comm comm)
-{
-    printf("p%d: sendrecv with %d for lower\n", rank, (rank + 1) % p);
-    MPI_Sendrecv(
+    MPI_Isend(
         local_grid[rows - 1],
         n,
         MPI_INT,
         (rank + 1) % p,
         0,
+        comm,
+        &req
+    );
+
+    MPI_Recv(
+        upper_row,
+        n,
+        MPI_INT,
+        (rank + p - 1) % p,
+        MPI_ANY_TAG,
+        comm,
+        MPI_STATUS_IGNORE
+    );
+
+    MPI_Wait(&req, MPI_STATUS_IGNORE);;
+}
+
+void sendUpperRecvLower(int* lower_row, int n, int rows, int** local_grid, MPI_Comm comm)
+{
+    printf("p%d: sending upper to %d\n", rank, (rank + 1) % p);
+    MPI_Request req;
+    MPI_Isend(
+        local_grid[0],
+        n,
+        MPI_INT,
+        (rank + p - 1) % p,
+        0,
+        comm,
+        &req
+    );
+
+    MPI_Recv(
         lower_row,
         n,
         MPI_INT,
@@ -75,6 +90,8 @@ void getLowerRow(int* lower_row, int n, int rows, int** local_grid, MPI_Comm com
         comm,
         MPI_STATUS_IGNORE
     );
+
+    MPI_Wait(&req, MPI_STATUS_IGNORE);
 }
 
 void simulate(int G, int n, int rows, int** local_grid, MPI_Comm comm){
@@ -87,8 +104,8 @@ void simulate(int G, int n, int rows, int** local_grid, MPI_Comm comm){
     int *lower_row = malloc(n * sizeof(int));
 
     for(int cycle = 0; cycle < G; cycle++){
-        getUpperRow(upper_row, n, rows, local_grid, comm);
-        getLowerRow(lower_row, n, rows, local_grid, comm);
+        sendLowerRecvUpper(upper_row, n, rows, local_grid, comm);
+        sendUpperRecvLower(lower_row, n, rows, local_grid, comm);
 
         for(int i = 1; i < rows - 1; i++){
             for(int j = 0; j < n; j++){
