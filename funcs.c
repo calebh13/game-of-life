@@ -39,7 +39,8 @@ void free_grid(int n, int rows, int** local_grid){
 }
 
 void simulate(int G, int n, int rows, int** local_grid, MPI_Comm comm){
-    int** output_grid = malloc(rows * sizeof(int));
+    int** output_grid = malloc(rows * sizeof(int*));
+    int display_frequency = 1;
     for(int i = 0; i < rows; i++) {
         output_grid[i] = malloc(n * sizeof(int));
     }
@@ -51,11 +52,57 @@ void simulate(int G, int n, int rows, int** local_grid, MPI_Comm comm){
                 output_grid[i][j] = determine_state(i,j,n,rows,local_grid, comm);
             }
         }
+        int** temp = local_grid;
+        local_grid = output_grid;
+        output_grid = temp;
+
+        if(cycle % display_frequency == 0){
+            display_gol(n, rows, local_grid, comm);
+        }
     }
 
-    free_grid(n, rows, local_grid);
+    free_grid(n, rows, output_grid);
 }
 
-int determine_state(int x,int y,int n,int rows,int** local_grid, MPI_Comm comm){
-    
+int determine_state(int y, int x, int n, int rows, int** local_grid, MPI_Comm comm) {
+
+    int west = (x - 1 + n) % n;
+    int east = (x + 1) % n;
+
+    int north = local_grid[y - 1][x];
+    int south = local_grid[y + 1][x];
+    int w     = local_grid[y][west];
+    int e     = local_grid[y][east];
+
+    int nw = local_grid[y - 1][west];
+    int ne = local_grid[y - 1][east];
+    int sw = local_grid[y + 1][west];
+    int se = local_grid[y + 1][east];
+
+    int neighbors = north + south + e + w + ne + nw + se + sw;
+
+    return neighbors > 2 && neighbors < 6;
+}
+
+void display_gol(int n, int rows, int** local_grid, MPI_Comm comm){
+    int rank, size;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &size);
+
+    for (int r = 0; r < size; r++) {
+        MPI_Barrier(comm);
+
+        if(rank == r){
+            for(int i = 0; i < rows; i++){
+                for(int j = 0; j < n; j++){
+                    printf("%d ", local_grid[i][j]);
+                }
+
+                printf("\n");
+            }
+        }
+    }
+
+    MPI_Barrier(comm);
+    if(rank == 0) printf("\n\n");
 }
