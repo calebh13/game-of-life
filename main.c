@@ -39,6 +39,7 @@ int main(int argc, char *argv[])
         // printf("FORMAT:p,n,total runtime,avg time/gen,total comm time,total comp time\n");
         double total_runtime_us = (end - start) * SEC_TO_US;
         double avg_gen_time_us = (total_runtime_us / G);
+        max_comm_time *= SEC_TO_US;
         double comp_time_us = (total_runtime_us - (comm_time * SEC_TO_US));
         printf("%d,%d,%.0f,%.0f,%.0f,%.0f\n", p, n, total_runtime_us, avg_gen_time_us, max_comm_time, comp_time_us);
     }
